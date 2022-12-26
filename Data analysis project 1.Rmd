@@ -1,0 +1,460 @@
+---
+title: "STAT0006 ICA 3"
+author: 'Student numbers: 20049301, 19014604, 19184272, 20022528.  Word Count : 1995'
+subtitle: "Group 19"
+output:
+ pdf_document:
+  toc: true
+  toc_depth: 2
+ html_document:
+  toc: true
+  toc_depth: 2
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = 'FALSE')
+```
+\newpage
+
+# Introduction to the data
+```{r beginning, echo=FALSE}
+setwd('/Users/mamane/Desktop/UCL/Year 2/Term 1/STAT0006/ICA 3')
+data <- read.csv('live_streams.csv')
+
+Sports <- data[data$genre == 'Sports',]
+RealTimeStrategy <- data[data$genre == 'RealTimeStrategy',]
+Adventure <- data[data$genre == 'Adventure',]
+Racing <- data[data$genre == 'Racing',]
+RolePlaying <- data[data$genre == 'RolePlaying',]
+Puzzle <- data[data$genre == 'Puzzle',]
+BoardGame <- data[data$genre == 'BoardGame',]
+Simulation <- data[data$genre == 'Simulation',]
+
+Spring <- data[data$season == 'Spring',]
+Summer <- data[data$season == 'Summer',]
+Autumn <- data[data$season == 'Autumn',]
+Winter <- data[data$season == 'Winter',]
+
+Player_1 <- data[data$host == 'Player1',]
+Player_2 <- data[data$host == 'Player2',]
+Player_3 <- data[data$host == 'Player3',]
+Player_4 <- data[data$host == 'Player4',]
+Player_5 <- data[data$host == 'Player5',]
+
+Monday <- data[data$day == 'Mon',]
+Tuesday <- data[data$day == 'Tue',]
+Wednesday <- data[data$day == 'Wed',]
+Thursday <- data[data$day == 'Thu',]
+Friday <- data[data$day == 'Fri',]
+Saturday <- data[data$day == 'Sat',]
+Sunday <- data[data$day == 'Sat',]
+
+sub_1 <- data[0:385,]
+sub_2 <- data[400:785,]
+sub_3 <- data[785:1120,]
+sub_4 <- data[1120:154,]
+
+guest_0 <- data[data$guests == 0,]
+guest_1 <- data[data$guests == 1,]
+guest_2 <- data[data$guests == 2,]
+
+
+```
+
+A group of five medias personalities running an online streaming channel want to understand in which ways various variables influence their number of viewers. To do so, they recorded the values of those variables during their three years of live streams, providing at the end a dataset containing 9 variables, which gives, in total, results for 1542 live streams. There are no missing data. 
+
+For each of the 1,542 live streams, the players have recorded : the total amount of viewers who watched the stream, the genre of video game played (i.e. Puzzle, Racing, . . . ), the host (which one of the 5 influencers played), the amount of suscribers of the chanel at the time of the live, the day of the week, the season of the year, the number of guest players included in the live stream, and finally the number of adverts both in the actual and previous live stream. 
+
+We investigate the influence of some of those variables using the comparative boxplots below since the number of observation for the levels of the categorical covariate is approximately the same. The datasest mean of the amount of viewers, whose value is 62,264, has been provided for each boxplot. 
+
+$$\\$$
+```{r Day, echo = FALSE}
+par(mfrow = c(1,2))
+boxplot(Monday$viewers, Tuesday$viewers, 
+                   Wednesday$viewers, Thursday$viewers, 
+                   Friday$viewers, Saturday$viewers,
+                   Sunday$viewers, 
+        names = c("Mon", "Tue", 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'), 
+        xlab = 'Days', ylab = 'Number of viewers', 
+        main = 'Viewers and days', yaxt = 'n'
+        )
+x <- c(0, 200000, 400000, 600000)
+axis(side = 2, at = c(0, 200000, 400000, 600000), labels = format(x, scientific = FALSE))
+abline(h = mean(data$viewers), lty = 2, lwd = 2, col = 'red')
+legend('topleft',lty = 2, legend = c('Dataset mean'), col = 'red', cex = 0.5)
+box(lwd = 2)
+boxplot(Winter$viewers, Spring$viewers, 
+                     Summer$viewers, Autumn$viewers, 
+        names = c("Winter", 'Spring', 'Summer', 'Autumn'),
+        xlab = 'Season', ylab = 'number of viewers',
+        main = 'Viewers and Season', yaxt = 'n')
+axis(side = 2, at = c(0, 200000, 400000, 600000), labels = format(x, scientific = FALSE))
+abline(h = mean(data$viewers), lty = 2, lwd = 2, col = 'red')
+legend('topright',lty = 2, legend = c('Dataset mean'), col = 'red', cex = 0.5)
+box(lwd = 2)
+```
+$$\\$$
+First, for ‘days’, we remark a real disparity. The number of viewers tends to largely increase during weekends, where the number of viewers can be up to two times larger than during the week. Similar differences are observed for the variable ‘season’, for instance between winters and springs. 
+
+```{r genr, echo=FALSE}
+par(mfrow = c(1,1))
+
+boxplot(Sports$viewers, RealTimeStrategy$viewers, Adventure$viewers,
+        Racing$viewers, RolePlaying$viewers, Puzzle$viewers,
+        BoardGame$viewers, Simulation$viewers,
+        ylab = 'Number of viewers', xlab = 'Genre',
+        main = 'Viewers and genre',
+        names = c('Spo', 'RTS', 'Adv', 'Rac','RPG', 
+                  'Puz', 'BG', 'Sim'),yaxt = 'n')
+x <- c(0,200000,400000, 600000)
+axis(side = 2, at = c(0,200000,400000, 600000), labels = format(x, scientific = FALSE))
+abline(h = mean(data$viewers), lty = 2, lwd = 2, col = 'red')
+legend('topright',lty = 2, legend = c('Dataset mean'), col = 'red', cex = 0.75)
+box(lwd = 2)
+
+```
+
+Regarding the ‘genre of video game’, we note more flexibility as role playing games, for example, tend to be far more popular than puzzle or sports games. The maximum number of viewers puzzle games attained is approximately at the same level that the first quartile of role playing games[^ref1].
+$$\\$$
+```{r subscriber, echo = FALSE}
+boxplot(sub_1$viewers, sub_2$viewers,
+        sub_3$viewers, sub_4$viewers, names = c('1st', '2nd', '3rd', '4th'),
+        ylab = 'number of viewers', main = 'Viewers and subscribers', xlab = 'Subscribers', yaxt = 'n')
+axis(side = 2, at = c(1,200000,400000, 600000), labels = format(x, scientific = FALSE))
+legend('topleft',lty = 2, legend = c('Dataset mean'), col = 'red', cex = 0.5)
+abline(h = mean(data$viewers), col = 'red', lty = 2)
+box(lwd = 2)
+
+```
+
+The data being roughly ordered in ascending order of the number of subscribers[^ref2], this variable is also positively correlated with the number of viewers. 
+
+In conclusion, various covariates such as ‘season’, ‘genre’ or ‘subscribers’ may be considered when building a model for the number of viewers. 
+
+[^ref1]: 'Spo' = Sports; 'RTS' = Real Time strategy; 'Adv' = Adventure; 'Rac' = Racing; 'RPG' = Role Playing games'; 'Puz' = Puzzle; 'BG' = Board Games; 'Sim' = Simulation
+[^ref2]: Data separated in four parts. '1st' = 1-385, '2nd' = 386 - 771, '3rd' = 771 - 1157, '4th' = 1157 - 1542
+
+\newpage
+
+# Model building
+
+```{r function needed, echo = FALSE}
+assumptions <- function(model){
+  #Clearing outliers
+  model_fitted<-fitted(model)
+  model_stdres<-rstandard(model)
+  
+  #Clearing the data
+  
+  par(mfrow = c(1,2))
+  qqnorm (model_stdres, ylab = "Standardized Residuals", xlab = "Quantiles of N(0,1)",
+          main = 'Normality')
+  qqline(model_stdres)
+  
+  plot(model_stdres, xlab = 'time', ylab = 'Standardized residuals', main = 'Check for serial correlation')
+}
+```
+
+Our first step in this process is to construct a normal linear model, without any modification in order to check what we have to improve. The second step consists in using various tools such as interactions or transformations to improve the model progressively.  
+
+## Our issues 
+
+```{r linearity, echo = FALSE, out.height= '45%'}
+model <- lm(viewers ~ genre + host+ subscribers + day + season + guests+
+              ads_now + ads_last, data = data)
+model_stdres <- rstandard(model)
+model_fitted <- fitted(model)
+
+par(mfrow = c(1,2))
+plot(data$subscribers, data$viewers, main = 'Linearity', 
+     ylab = 'Viewers', xlab = 'Subscribers')
+
+plot(model_fitted, model_stdres, xlab="Fitted values", ylab="Standardised residuals",
+     main = 'Homoscedasticity')
+abline(a=0, b = 0, col = 'red', lty = 2)
+par(mfrow = c(1,1))
+
+```
+
+To precise our method, we checked linearity by plotting the relationship ‘subscribers/viewers’ specifically in the model as the three other numeric covariates only have four values, with a number of observation different for each value. And as observed, this relationship seems to be linear but can be improved. 
+
+Regarding the homoscedasticity assumption, the model fits negative values and the points form a real quadratic shape. Therefore, it is largely detrimental. However, it suggests intuitively a square root transformation on the response variable. 
+
+
+\newpage
+
+## Transformations
+
+```{r square_root_model, echo = FALSE}
+model_sq <- lm(sqrt(viewers) ~ genre + host+ subscribers + day + season + guests+
+              ads_now + ads_last, data = data)
+model_sq_fitted<-fitted(model_sq)
+model_sq_stdres<-rstandard(model_sq)
+par(mfrow = c(1,2))
+plot(model$fitted.values, model_stdres, main = 'Before transformation', 
+     ylab = 'Standardized residuals', xlab = 'Fitted values')
+abline(a = 0, b = 0, col = 'red', lty = 2)
+
+plot(model_sq_fitted, model_sq_stdres, xlab="Fitted values", ylab="Standardised residuals",
+       main = 'After  transformation')
+abline(a=0, b = 0, col = 'red', lty = 2)
+
+```
+$$\\$$
+No negative fitted values are observed anymore, and our coefficient of determination increased by 0.10, which is a good improvement. But progress can still be made as we still observe a quadratic shape. 
+
+
+However, this transformation eases the interpretation of variables. So we will continue to use it for now, while trying to improve the model with other methods. A change in the transformation for a more complex method, in this case with a smaller root, will be done if needed. 
+
+```{r transfor_others, echo = FALSE}
+par(mfrow = c(1,2))
+
+plot(data$subscribers, sqrt(data$viewers), main = 'One square root',
+   xlab = 'subscribers', ylab= expression(sqrt(viewers)))
+
+plot(sqrt(data$subscribers), sqrt(data$viewers), main = 'Both square root',
+     xlab = expression(sqrt(subscribers)), ylab= expression(sqrt(viewers)) )
+```
+
+Since we did a square root transformation on the response variable, this logically implies the same transfor- mation on subscribers as their values range approximately on the same scale. As we can see, the two plots seem to be the same, but one really big scatter of points remains at the bottom-left of the first plot, meaning that we will have more problems to predict large values. Hence, we decide to implement a second square root transformation for subscribers. 
+
+We do not consider a transformation on the other numeric covariates as, said earlier, their values range only between 0 and 3, which changes the y-absis values without changing the look of the plots. As we do not have other numerical covariates, the next step in our modeling process is to include interactions. 
+ 
+
+
+## Interactions
+
+```{r interaction_new_model, echo = FALSE}
+model_sq <- lm(sqrt(viewers) ~ genre + host+ sqrt(subscribers) + day + season + guests+
+                 ads_now  + ads_last +
+                 sqrt(subscribers) * genre
+               ,data = data)
+model_sq_fitted <- fitted(model_sq)
+model_sq_stdres <- rstandard(model_sq)
+```
+
+
+For the next part, we tried to implement the two interactions that seemed logical to us, namely the ones between ‘genre’ and ‘subscribers’ or ‘guests’. In fact, increase in the number of subscribers is likely to change with the genre. Moreover, some genre are meant for multiplayer games, whilst others are meant for solo play. 
+
+What we observed is that the ‘subscribers’ interaction was improving the fit of the assumptions plot, which is not the case of the interaction involving the ‘guest’ variable. Yet, both interactions were improving significantly the coefficient of determination. So, we are sure to include the first one, nevertheless, there is a possibility that  including both of them could add something to our model. 
+
+We are then left with two options: either to include only the first interaction between ‘subscribers’ and ‘genre’ (model 1), or include the two interactions (model 2) which adds 7 covariates and complexify the final interpretation. 
+
+The fundamental purpose being, at the end, to find the right balance between simplicity and precision, our next part will help us to choose the most appropriate model between the two. 
+
+
+
+\newpage
+```{r model_sq_3, echo = FALSE}
+model_A <- lm(sqrt(viewers) ~ genre + host+ sqrt(subscribers) + day + guests+
+                 ads_last + ads_now+
+                 sqrt(subscribers) * genre + guests*genre
+               ,data = data)
+model_A_fitted <- fitted(model_A)
+model_A_stdres <- rstandard(model_A)
+
+model_B <- lm(sqrt(viewers) ~ genre + host+ sqrt(subscribers) + day + guests+
+                 ads_last + ads_now+
+                 sqrt(subscribers) * genre
+               ,data = data)
+model_B_fitted <- fitted(model_B)
+model_B_stdres <- rstandard(model_B)
+
+hatva_m_A <- hatvalues(model_A)
+outliers_A <- data[which(abs(model_A_stdres)>6),]
+leverages_A <-  which(hatva_m_A > (2*length(model_A$coefficients)/length(model_A$fitted.values)) )
+
+hatva_m_B <- hatvalues(model_B)
+outliers_B <- data[which(abs(model_B_stdres)>6),]
+leverages_B <-  which(hatva_m_B > (2*length(model_B$coefficients)/length(model_B$fitted.values)) )
+
+
+```
+## Chosing between model 1 and model 2
+
+```{r comparison, echo = FALSE}
+par(mfrow = c(1,2))
+plot(model_B_fitted, model_B_stdres, xlab="Fitted values", ylab="Standardised residuals",
+       main = '1 interaction')
+abline(a=0, b = 0, col = 'red', lty = 2)
+
+plot(model_A_fitted, model_A_stdres, xlab="Fitted values", ylab="Standardised residuals",
+       main = '2 interactions')
+abline(a=0, b = 0, col = 'red', lty = 2)
+```
+
+Just by looking at the homoscedasticity assumption, we can see that the standardised residuals of the two interactions model form a real quadratic shape, which is not really the case for the second. 
+
+### Leverages and outliers
+
+Also, when analysing the leverages and outliers of the models, both of the plots contain their unusual values that could be potential outliers. But, taking the diagonal values of the hat matrix above 2*p/n[^ref3], the two interactions model contains 77 possible leverages, while the ‘one interaction’ does not contain any. 
+
+Investigating if each of those 77 values is a leverage or not and then fitting the model based on this analysis can be a tedious process and can lead to withdraw lots of data. 
+
+As such, regarding the fit of the assumptions and the leverages, we decide to choose the model without the guest interaction: model 1. 
+
+
+
+## Simplifying even more our model
+
+Finally, as observed in the basic model, the three levels of the covariate season have p-values above 0.55, which suggest that we could withdraw them. And as expected, neither the coefficient of determination nor the fit of the assumptions have been impacted when doing so. 
+
+Additionally, since ‘ads_last’ is constructed based on ‘ads_now’, this suggests a collinearity between those covariates. This is further verified when conducting the variance inflation factor of the model as both variables have value equal approximately to 3.2. 
+
+Thus, we decide to withdraw the covariate with the greatest p-value, namely ‘ads_now’, as well as the categorical covariate ‘season’. 
+
+
+[^ref3]: 'p' : number of covariates; 'n' : number of observations
+\newpage
+
+
+# Model checking for final chosen model
+
+```{r final, echo = FALSE}
+options(width = 100)
+model_final <- lm(sqrt(viewers) ~ genre + host+ sqrt(subscribers) + 
+                  day + guests+ ads_last +
+                  sqrt(subscribers) * genre, data = data)
+sd_resid_final <- rstandard(model_final)
+fitted_final <- fitted(model_final)
+summary(model_final)
+```
+
+Our final model has a coefficient of determination of 0.9123, which suggests that about 91% of the variability in the number of viewers is captured by our 28 covariates. 
+
+\newpage
+## Linearity 
+
+```{r linearity_final, echo = FALSE}
+par(mfrow = c(1,2))
+#Fitted against real
+boxplot(guest_0$viewers, guest_1$viewers, guest_2$viewers, xlab = 'Number of guests', ylab = 'Viewers',
+        yaxt = 'n', names = c(0,1,2))
+x <- c(0, 200000, 400000, 600000)
+axis(side = 2, at = c(0, 200000, 400000, 600000), labels = format(x, scientific = FALSE))
+abline(h = mean(data$viewers), lty = 2, lwd = 2, col = 'red')
+legend('topleft',lty = 2, legend = c('Dataset mean'), col = 'red', cex = 0.5)
+box(lwd = 2)
+
+#Subscriber
+plot(sqrt(data$subscribers), sd_resid_final, ylab = 'Standardized Residuals', xlab = expression(sqrt(subscribers)))
+abline(h = 0, col = 'red', lty = 2)
+legend('topright', legend = 'y = 0', lty = 2, col = 'red', cex = 0.5 )
+box(lwd = 2)
+
+```
+
+It seems that both guests and subscribers variable are positively correlated to the number of viewers. Indeed, there are some unusual standardized residuals on the second plot, but we are expecting 5% of the residuals to have a magnitude greater than 2 anyway. For the numerical variable ads_last, the relationship will be analyzed in the next section of the report as the graph contradicts the regression coefficient.
+
+\newpage
+## Homoscedasticity
+```{r homoscedasticity_final, echo = FALSE}
+plot(fitted_final, sd_resid_final, main = 'Homoscedasticity', 
+     ylab= 'Standardized Residuals', xlab = 'Fitted values')
+abline(h = 0, col = 'red', lty = 2)
+box(lwd = 2)
+
+```
+
+Concerning the constant variance assumption of the error terms, we can say that the plot does not look really bad. The points seem to form a random scatter points around 0 even if we observe again some unusual standardised residuals as the fitted values increase. This is logical as we are given less information for those extreme values. Something we will remark again for the next assumption. 
+
+\newpage
+## Normality
+
+```{r normality, echo = FALSE}
+qqnorm (sd_resid_final, ylab = "Standardized Residuals", xlab = "Quantiles of N(0,1)",
+          main = 'Normality')
+qqline(sd_resid_final)
+box(lwd = 2)
+
+
+```
+
+Concerning the normality of error terms, the points from -2 to 2 seem to lie on the diagonal line. Even if values ranging from -2 to -1 lie a little bit below it. This is something that we tried to alleviate by transforming the response variable and by including interaction to improve the homoscedasticity assumption plot where many residuals were lying above 1 and in our case below -1. Regarding the tail, as we said before, we are always given less information for extreme values, which is natural. 
+
+\newpage
+## Independence 
+```{r comparison_final, echo = FALSE}
+par(mfrow = c(1,2))
+plot(model_stdres, xlab = 'time', ylab = 'Standardized residuals', 
+     main = 'Basic model', sub = 'Wilcoxon Test p-value : 0.00049')
+abline(h = 0, col = 'red', lty = 2)
+box(lwd = 2)
+
+
+plot(sd_resid_final, xlab = 'time', ylab = 'Standardized residuals', 
+     main = 'Final model', sub = 'Wilcoxon Test p-value : 0.029')
+abline(h = 0, col = 'red', lty = 2)
+box(lwd = 2)
+
+
+```
+
+As we know, the data are already ordered in time. Still, even if there is an improvement in comparison to the basic model as we observe on the plots, the ‘Durbin Watson Test’ suggests positive serial correlation as we have a ‘p-value’ inferior to 0.05. 
+
+Nonetheless, we cannot do many other things on our model to tackle this problem without complexifying it. Indeed, overall, the number of viewers on a live stream influences the number of viewers on the next as more subscribers are following the channel, leading to additional viewers and so on. A dependence will always remain between the data. 
+
+
+\newpage
+
+# Conclusions
+
+## What our model tells us
+
+Firstly, regarding the regression coefficients of the different days, four of them are negative (reference category being Friday), whereas 2 of them are positive (Saturday, Sunday), which indicates that we have more viewers during week-ends. 
+
+Following that, we also have disparities between genres of games. For instance, the expected difference in the square number of viewers between Role playing and Adventure gameplays, when the number of subscribers is set to 0 and while holding all other covariates fixed, is expected to be 38.8. Whereas this difference between Board Game and Adventure games in the same condition is expected to be -42.48. Additionally, the interaction regression coefficients all have p-values under $10^{-7}$, which implies that the dependence of the number of viewers to subscribers does change with the genre of video game played, indicating that genre plays an even more important role in predicting the outcome. 
+
+For the variable host, player 2 and 5 have a week regression coefficient inferior to 4 and have p-values superior to 0.20. Whilst Player 3 and 4 have p-values inferior to 2e-16, for regression coefficients both superior to 26. This suggests that host 3 and 4 may attract more viewers than the three others. 
+
+As for the three numeric covariates, in average for the genre Adventure and holding all other covariates fixed, 10 additional subscribers increase by 784 the average number of viewers. This number goes to 1444 for the variable guest and gets back to -9 for the number of ads in the previous last stream. This means that paradoxically, even if the number of ads increase with the number of subscribers and viewers, more ads in a previous live stream generally leads to fewer viewers in the next one. 
+
+
+
+## Particular issues 
+
+We note that our model contains some irregularities and tend to predict badly the number of viewers when it becomes very large. Obviously, it also does not take into account qualitative aspects such as the renown of a *[guest](https://variety.com/2018/digital/news/drake-shows-up-on-twitch-breaks-live-streaming-record-1202727867/)* or[^ref4] a host, something that can have a significant impact on the number of viewers. 
+
+[^ref4]: The term 'guest' is a link
+
+\newpage
+
+# New channel genre
+
+Extracting only Adventure and Racing, we are left with 189 rows.
+
+```{r, echo = FALSE}
+new <- subset(data, genre == c('Racing', 'Adventure'))
+new_model <- lm(viewers ~ new$genre, data = new )
+```
+
+We now construct the hypothesis tests by conducting a two sample t-test :
+
+```{r hypothesis_test, echo = FALSE}
+diff_means <- mean(new[new$genre == 'Racing',]$viewers) - mean(new[new$genre == 'Adventure',]$viewers)
+t.test(new[new$genre == 'Racing',]$viewers, 
+       new[new$genre == 'Adventure',]$viewers, 
+       alternative = 'two.sided', 
+       conf.level = 0.95)
+```
+
+We observe that the p_value calculated from the t-test is of 0.14. This suggests that there is no evidence to reject the null hypothesis, stating that the two means are equal. However, the p-value is not very large, so this is not a ‘strong evidence’. But this suggests that we should choose Racing games for their new channel. 
+
+## Concerns about the assumptions
+
+The Welch two sample t-test is designed for unequal population variances, which is strongly satisfied in our case, but assume normality for the two populations compared. . 
+
+```{r assum, echo = FALSE}
+par(mfrow = c(1,2))
+hist(Adventure$viewers, xlab = 'viewers', main = 'Adventure')
+hist(Racing$viewers, xlab = 'viewers', main = 'Racing')
+
+```
+
+As we can observe on the histograms above, the numbers of viewers for the two genres follow a right skewed distribution, whereas we expect a symmetric one for a normal population. Therefore, we may be worried about the validity of our assumptions and the meaningfulness of the hypothesis test conducted. As such, no definitive conclusion can be drawn from it. 
+
+
+
+
+
+
