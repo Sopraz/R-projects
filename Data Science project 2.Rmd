@@ -1,0 +1,207 @@
+---
+title: "Model Building"
+author:
+date: 
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = F)
+
+setwd('/Users/mamane/Desktop/untitled folder/Project.2 STAT0023')
+
+# read datasets 
+products <- read.csv("groceryProducts.csv")
+stores <- read.csv("groceryStores.csv")
+transactions <- read.csv("groceryTransactions.csv")
+
+
+# compile the three given datasets 
+newdata <- merge(transactions, products,by = "UPC")
+newdata <- merge(newdata, stores, by="STORE_NUM")
+
+# separate into training set and testing set
+test <- newdata[newdata$UNITS==-1,]
+train <- newdata[newdata$UNITS!=-1,]
+```
+
+
+Before building the model, we will start by including some new covariates computed based on the given one to provide us with more information and better predicting power. The first covariate we decided to include is the `discount` covariate, which is computed as the percentage decrease of `PRICE` over `BASE_PRICE`. The values are then rounded to 3 decimal points.
+
+```{r , echo=F}
+#include discount in training data set
+discount <- round((train$BASE_PRICE - train$PRICE)/train$BASE_PRICE,3) 
+train1 <- cbind(train,discount)
+```
+
+The next covariate that we thought to include is `SEASON`. The covariate `MONTH` is a categorical covariate with 12 factors, which will not be ideal to include if we try to build a model using it, as that will increase the number of covariates by too much. Instead, we will group some of the factors to reduce the number of dummy variables at the model building part. An intuitive choice, and the choice we decided to go with, is to group `MONTH` into `SEASON`, so we will only have 4 factors instead of 12, which is a big improvement. The groupings will follow the standard division of seasons, so for example March, April, and May will all be SPRING. 
+
+```{r , echo=F}
+#include season in training data set
+
+SEASON <- rep('constant', nrow(train1))
+SEASON[which(train1$MONTH %in% c(11,12,1))] <- "WINTER"
+SEASON[which(train1$MONTH %in% c(2,3,4))] <- "SPRING"
+SEASON[which(train1$MONTH %in% c(5,6,7))] <- "SUMMER"
+SEASON[which(train1$MONTH %in% c(8,9,10))] <- "AUTUMN"
+
+
+train1 <- cbind(train1,SEASON)
+```
+
+Another categorical variable with a lot of factors is `CITY`. There are 51 cities in the dataset provided, which means we have to group them in order to include them in our model and get a sensible outcome. We implemented the hierarchical clustering to `CITY`, based on some numerical variables provided. The idea we are going with for clustering the cities is that we would want to put cities with similar social-economical status into the same group, which is reflected in the `STORE_TYPE` and `AVG_WEEKLY_BASKETS`. Although `STORE_TYPE` is categorical, the remedy we applied is to count the number of stores of each of the three kinds (UPSCALE, VALUE, MAINSTREAM) in the same city, which becomes perfectly numerical. If two cities have similar number of stores and a similar distribution of the types, they will be grouped together, which aligns with our intuition. Regarding the `AVG_WEEKLY_BASKETS`, we added up the `AVG_WEEKLY_BASKETS` of all the stores in the same city, to reflect on the amount of business the city is experiencing. A portion of the adjusted data set for clustering `CITY` is shown below. `CITY` is then clustered into four groups, as that provides us with a rather even size and the number of groups is not too big to defeat our purpose of clustering. 
+
+```{r , echo=F}
+# clustering of city, based on store types and avg weekly baskets
+
+city_clus <- data.frame(stores$CITY,stores$STORE_TYPE,stores$AVG_WEEKLY_BASKETS)
+
+MAINSTREAM <- c()
+UPSCALE <- c()
+VALUE <- c()
+BASKETS <- c()
+
+for (i in unique(stores$CITY)){
+  MAINSTREAM <- c(MAINSTREAM,sum(city_clus[city_clus$stores.CITY==i,2]=="MAINSTREAM"))
+  UPSCALE <- c(UPSCALE,sum(city_clus[city_clus$stores.CITY==i,2]=="UPSCALE"))
+  VALUE <- c(VALUE,sum(city_clus[city_clus$stores.CITY==i,2]=="VALUE"))
+  BASKETS <- c(BASKETS, sum(city_clus[city_clus$stores.CITY==i,3]))
+}
+
+CITY <- unique(stores$CITY)
+
+city_clus <- data.frame(CITY ,MAINSTREAM, UPSCALE, VALUE,BASKETS) 
+
+head(city_clus)
+
+NumVars <- (sapply(city_clus, is.numeric) & # Columns containing numeric
+              !names(city_clus) %in% c(CITY))
+CityMeans <-  aggregate(city_clus[,NumVars], # Means of all numeric covariates
+                        by=list(city_clus$CITY), FUN=mean) # by rural / urban group
+rownames(CityMeans) <- CityMeans[,1]
+CityMeans <- scale(CityMeans[,-1]) # Standardise to mean 0 & SD 1
+Distances <- dist(CityMeans) # Pairwise distances
+ClusTree <- hclust(Distances, method="complete") # Do the clustering
+# par(mar=c(3,3,3,1), mgp=c(2,0.75,0)) # Set plot margins
+# plot(ClusTree, xlab="City", ylab="Separation", cex=0.7)
+
+NewGroups <- cutree(ClusTree, k=4)
+
+grp1 <- names(NewGroups[NewGroups==1])
+grp2 <- names(NewGroups[NewGroups==2])
+grp3 <- names(NewGroups[NewGroups==3])
+grp4 <- names(NewGroups[NewGroups==4])
+
+Grp_CITY <- rep('constant', nrow(train1))
+Grp_CITY[which(train1$CITY %in% grp1)] <- "1"
+Grp_CITY[which(train1$CITY %in% grp2)] <- "2"
+Grp_CITY[which(train1$CITY %in% grp3)] <- "3"
+Grp_CITY[which(train1$CITY %in% grp4)] <- "4"
+
+train1 <- cbind(train1,Grp_CITY)
+```
+
+The final covariate that we intend to cluster is `STORE_NUM`. We aim to group them based on their promotional strategies, i.e. `TPR_ONLY`, `DISPLAY`, and `FEATURE`. The values of these covariates we received are weekly, so we multiplied them by `NWEEKS` to adjust them back to monthly data. This should be more informative about the promotional strategies of the individual stores than the weekly ones. Additionally, the adjusted covariates are added to the data set. A portion of the adjusted data set for clustering `STORE_NUM` is shown below. 
+
+```{r , echo=F}
+# clustering of store number, based on TPRmonth, DISPLAYmonth, FEATUREmonth
+STORE_NUM <- train1$STORE_NUM
+TPRmonth <- round(train1$TPR_ONLY * train1$NWEEKS)
+DISPLAYmonth <- round(train1$DISPLAY * train1$NWEEKS)
+FEATUREmonth <- round(train1$FEATURE * train1$NWEEKS)
+
+store_num_clus1 <- data.frame(STORE_NUM, TPRmonth, DISPLAYmonth, FEATUREmonth)
+
+head(store_num_clus1)
+
+NumVars <- (sapply(store_num_clus1, is.numeric) & # Columns containing numeric
+              !names(store_num_clus1) %in% c(STORE_NUM))
+CityMeans <-  aggregate(store_num_clus1[,NumVars], # Means of all numeric covariates
+                        by=list(store_num_clus1$STORE_NUM), FUN=mean) # by rural / urban group
+rownames(CityMeans) <- CityMeans[,1]
+CityMeans <- scale(CityMeans[,-1]) # Standardise to mean 0 & SD 1
+Distances <- dist(CityMeans) # Pairwise distances
+ClusTree1 <- hclust(Distances, method="complete") # Do the clustering
+#par(mar=c(3,3,3,1), mgp=c(2,0.75,0)) # Set plot margins
+#plot(ClusTree1, xlab="Store Number", ylab="Separation", cex=0.7)
+
+NewGroups1 <- cutree(ClusTree1, k=4)
+
+grp1_1 <- names(NewGroups1[NewGroups1==1])
+grp1_2 <- names(NewGroups1[NewGroups1==2])
+grp1_3 <- names(NewGroups1[NewGroups1==3])
+grp1_4 <- names(NewGroups1[NewGroups1==4])
+
+
+Grp_STORE_NUM1 <- rep('constant', nrow(train1))
+
+Grp_STORE_NUM1[which(train1$STORE_NUM %in% grp1_1)] <- "1"
+Grp_STORE_NUM1[which(train1$STORE_NUM %in% grp1_2)] <- "2"
+Grp_STORE_NUM1[which(train1$STORE_NUM %in% grp1_3)] <- "3"
+Grp_STORE_NUM1[which(train1$STORE_NUM %in% grp1_4)] <- "4"
+
+#include clustered store number, TPRmonth, DISPLAYmonth, FEATUREmonth
+train1 <- cbind(train1,Grp_STORE_NUM1)
+train1 <- cbind(train1,TPRmonth,DISPLAYmonth,FEATUREmonth)
+```
+
+To have a more direct idea of each of the four clustered groups of `STORE_NUM`, we present below an averaged value of `TPRmonth`, `DISPLAYmonth`, and `FEATUREmonth` for each of the groups. Though not immediately drastic, one can still see the groups are varied in compared values. 
+
+```{r , echo=F}
+grp1_1_sum <- c()
+for (i in 2:4){
+  grp1_1_sum <- c(grp1_1_sum,mean(store_num_clus1[store_num_clus1$STORE_NUM %in% grp1_1,i]))
+}
+
+grp1_2_sum <- c()
+for (i in 2:4){
+  grp1_2_sum <- c(grp1_2_sum,mean(store_num_clus1[store_num_clus1$STORE_NUM %in% grp1_2,i]))
+}
+
+grp1_3_sum <- c()
+for (i in 2:4){
+  grp1_3_sum <- c(grp1_3_sum,mean(store_num_clus1[store_num_clus1$STORE_NUM %in% grp1_3,i]))
+}
+
+grp1_4_sum <- c()
+for (i in 2:4){
+  grp1_4_sum <- c(grp1_4_sum,mean(store_num_clus1[store_num_clus1$STORE_NUM %in% grp1_4,i]))
+}
+
+grp_summary1 <- rbind(round(grp1_1_sum,3),round(grp1_2_sum,3),round(grp1_3_sum,3),round(grp1_4_sum,3))
+colnames(grp_summary1) <- colnames(store_num_clus1)[2:4]
+rownames(grp_summary1) <- c("Group 1", "Group 2", "Group 3", "Group 4")
+grp_summary1
+```
+
+At this point, we have adjusted the given covariates and included additional covariates that we think could be useful. The next step would be to build the model. The most standard model is the linear model, and we will not be using this. The linear model is built on various assumptions, and among them one assumption is the assumption of normality, i.e. the residuals are normally distributed. We do not think this is the case in for the cereal data we get. 
+
+A linear model is built using all the covariates, and diagonistic plots about it are drawn below. We can see from the Normal Q-Q plot that the tail part is far above the ideal linear trend, which indicates the data is positively skewed. Also, the Residuals vs Fitted plot indicate a similar point, with the variance growing as the fitted values increase. Therefore, it is probably a better idea to use a different model than linear model. 
+
+```{r , echo=F}
+linear_model <- lm(UNITS ~ factor(YEAR) + factor(NWEEKS) + factor(TPRmonth) + factor(DISPLAYmonth) + factor(FEATUREmonth) + PRICE + BASE_PRICE + MANUFACTURER + SUB_CATEGORY + STATE + STORE_TYPE + AVG_WEEKLY_BASKETS + discount + factor(Grp_CITY) + factor(Grp_STORE_NUM1) + SEASON, data= train1)
+
+par(mfrow=c(2,2))
+plot(linear_model)
+```
+
+So, we decided to use a genearlised linear model (GLM) with Poisson family. The Poisson distribution is positively skewed, and we believe it provides a good modelling of the residuals of our data. The reason why we do not use generalised additive model (GAM) is that a GAM, although might produce a better fit, will be disruptting the interpretability of the model, which is not ideal in this scenario, since we not only want to make predictions but also want to understand the relationships between the covariates and the response. So, we beleive the GLM provides a good balance between quality of the model and the interpretability of it, which is the type of model that we are choosing here. 
+
+Below, we have built a GLM with Poisson family using all the covariates we have. A summary of that is also included below.
+
+
+```{r , echo=F}
+model0 <- glm(UNITS ~ factor(YEAR) + factor(NWEEKS) + factor(TPRmonth) + factor(DISPLAYmonth) + factor(FEATUREmonth) + PRICE + BASE_PRICE + MANUFACTURER + SUB_CATEGORY + STATE + STORE_TYPE + AVG_WEEKLY_BASKETS + discount + factor(Grp_CITY) + factor(Grp_STORE_NUM1) + SEASON, data= train1, family=poisson)
+
+summary(model0)
+
+sum( resid(model0,type="pearson")^2 ) / model0$df.residual
+
+model1 <- glm(UNITS ~ factor(YEAR) + factor(NWEEKS) + factor(TPRmonth) + factor(DISPLAYmonth) + factor(FEATUREmonth) + PRICE + BASE_PRICE + MANUFACTURER + SUB_CATEGORY + STATE + STORE_TYPE + AVG_WEEKLY_BASKETS + discount + factor(Grp_CITY) + factor(Grp_STORE_NUM1) + SEASON, data= train1, family=quasipoisson)
+
+summary(model1)
+
+sum( resid(model1,type="pearson")^2 ) / model1$df.residual
+
+
+```
